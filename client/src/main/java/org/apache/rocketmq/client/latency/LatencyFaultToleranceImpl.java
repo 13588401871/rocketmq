@@ -117,15 +117,33 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
             '}';
     }
 
+    /**
+     * 对象故障信息。维护对象的名字、延迟、开始可用的时间。
+     */
     class FaultItem implements Comparable<FaultItem> {
+        /**
+         * 对象名
+         */
         private final String name;
+        /**
+         * 延迟
+         */
         private volatile long currentLatency;
+        /**
+         * 开始可用时间
+         */
         private volatile long startTimestamp;
 
         public FaultItem(final String name) {
             this.name = name;
         }
 
+        /**
+         * 比较对象
+         * 可用性 > 延迟 > 开始可用时间
+         * @param other other
+         * @return 升序
+         */
         @Override
         public int compareTo(final FaultItem other) {
             if (this.isAvailable() != other.isAvailable()) {
@@ -151,6 +169,10 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
             return 0;
         }
 
+        /**
+         * 是否可用：当开始可用时间大于当前时间
+         * @return 是否可用
+         */
         public boolean isAvailable() {
             return (System.currentTimeMillis() - startTimestamp) >= 0;
         }
