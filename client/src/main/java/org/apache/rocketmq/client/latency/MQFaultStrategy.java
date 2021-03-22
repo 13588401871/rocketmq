@@ -22,6 +22,9 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * Producer消息发送容错策略。默认情况下容错策略关闭，即sendLatencyFaultEnable=false
+ */
 public class MQFaultStrategy {
     private final static InternalLogger log = ClientLogger.getLog();
     /**

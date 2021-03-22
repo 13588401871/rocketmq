@@ -506,6 +506,18 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     }
 
+    /**
+     * 说明 ：发送消息。步骤：获取消息路由信息，选择要发送到的消息队列，执行消息发送核心方法，并对发送结果进行封装返回。
+     * @param msg
+     * @param communicationMode
+     * @param sendCallback
+     * @param timeout
+     * @return
+     * @throws MQClientException
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     */
     private SendResult sendDefaultImpl(
         Message msg,
         final CommunicationMode communicationMode,
@@ -669,6 +681,11 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             null).setResponseCode(ClientErrorCode.NOT_FOUND_TOPIC_EXCEPTION);
     }
 
+    /**
+     * 获得 Topic发布信息。优先从缓存topicPublishInfoTable，其次从Namesrv中获得。
+     * @param topic
+     * @return
+     */
     private TopicPublishInfo tryToFindTopicPublishInfo(final String topic) {
         // 缓存中获取 Topic发布信息
         TopicPublishInfo topicPublishInfo = this.topicPublishInfoTable.get(topic);
