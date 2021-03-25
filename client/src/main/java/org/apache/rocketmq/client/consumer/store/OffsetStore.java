@@ -16,15 +16,17 @@
  */
 package org.apache.rocketmq.client.consumer.store;
 
-import java.util.Map;
-import java.util.Set;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
+import java.util.Map;
+import java.util.Set;
+
 /**
  * Offset store interface
+ * Consumer 消费进度
  */
 public interface OffsetStore {
     /**
@@ -34,6 +36,7 @@ public interface OffsetStore {
 
     /**
      * Update the offset,store it in memory
+     * 该方法 RemoteBrokerOffsetStore 与 LocalFileOffsetStore 实现相同。
      */
     void updateOffset(final MessageQueue mq, final long offset, final boolean increaseOnly);
 

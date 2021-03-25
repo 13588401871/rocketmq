@@ -21,11 +21,20 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.logging.InternalLogger;
 
+/**
+ * 均衡消息队列服务，负责分配当前 Consumer 可消费的消息队列( MessageQueue )。
+ */
 public class RebalanceService extends ServiceThread {
+    /**
+     * 等待间隔，单位：毫秒
+     */
     private static long waitInterval =
         Long.parseLong(System.getProperty(
             "rocketmq.client.rebalance.waitInterval", "20000"));
     private final InternalLogger log = ClientLogger.getLog();
+    /**
+     * MQClient对象
+     */
     private final MQClientInstance mqClientFactory;
 
     public RebalanceService(MQClientInstance mqClientFactory) {
