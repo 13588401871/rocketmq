@@ -16,8 +16,6 @@
  */
 package org.apache.rocketmq.example.ordermessage;
 
-import java.io.UnsupportedEncodingException;
-import java.util.List;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
@@ -28,6 +26,9 @@ import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 import org.apache.rocketmq.remoting.exception.RemotingException;
+
+import java.io.UnsupportedEncodingException;
+import java.util.List;
 
 public class Producer {
     public static void main(String[] args) throws UnsupportedEncodingException {
@@ -45,6 +46,7 @@ public class Producer {
                     @Override
                     public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
                         Integer id = (Integer) arg;
+                        // 根据 id % mqs.size() 来进行消息队列的选择。
                         int index = id % mqs.size();
                         return mqs.get(index);
                     }
