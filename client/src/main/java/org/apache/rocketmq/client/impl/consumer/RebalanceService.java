@@ -47,6 +47,7 @@ public class RebalanceService extends ServiceThread {
 
         while (!this.isStopped()) {
             this.waitForRunning(waitInterval);
+            // 感知订阅关系的变化、集群变化等，以达到重新平衡。
             this.mqClientFactory.doRebalance();
         }
 

@@ -16,22 +16,6 @@
  */
 package org.apache.rocketmq.store.ha;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
@@ -40,6 +24,19 @@ import org.apache.rocketmq.remoting.common.RemotingUtil;
 import org.apache.rocketmq.store.CommitLog;
 import org.apache.rocketmq.store.DefaultMessageStore;
 import org.apache.rocketmq.store.PutMessageStatus;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class HAService {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
@@ -431,6 +428,15 @@ public class HAService {
             return true;
         }
 
+        /**
+         * 读取 Master 传输的 CommitLog 数据，并返回是否异常
+         * 如果读取到数据，写入 CommitLog
+         * 异常原因：
+         *   1.Master 传输来的数据 offset 不等于 Slave 的 CommitLog 数据最大 offset
+         *   2.上报到 Master 进度失败
+         *
+         * @return 是否异常
+         */
         private boolean dispatchReadRequest() {
             final int msgHeaderSize = 8 + 4; // phyoffset + size
             int readSocketPos = this.byteBufferRead.position();
@@ -543,6 +549,9 @@ public class HAService {
             }
         }
 
+        /**
+         * Slave 主循环，实现了不断不断不断从 Master 传输 CommitLog 数据，上传 Master 自己本地的 CommitLog 已经同步物理位置。
+         */
         @Override
         public void run() {
             log.info(this.getServiceName() + " service started");
@@ -550,7 +559,7 @@ public class HAService {
             while (!this.isStopped()) {
                 try {
                     if (this.connectMaster()) {
-
+                        // 若满足上报间隔(默认5s)，上报到Master进度，该操作还有心跳的作用。
                         if (this.isTimeToReportOffset()) {
                             boolean result = this.reportSlaveMaxOffset(this.currentReportedOffset);
                             if (!result) {
@@ -560,15 +569,18 @@ public class HAService {
 
                         this.selector.select(1000);
 
+                        // 处理读取事件
                         boolean ok = this.processReadEvent();
                         if (!ok) {
                             this.closeMaster();
                         }
 
+                        // 若进度有变化，上报到Master进度
                         if (!reportSlaveMaxOffsetPlus()) {
                             continue;
                         }
 
+                        // Master过久未返回数据，关闭连接
                         long interval =
                             HAService.this.getDefaultMessageStore().getSystemClock().now()
                                 - this.lastWriteTimestamp;

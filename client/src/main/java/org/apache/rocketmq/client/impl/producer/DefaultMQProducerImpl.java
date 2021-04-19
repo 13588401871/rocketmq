@@ -142,14 +142,18 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public void start(final boolean startFactory) throws MQClientException {
         switch (this.serviceState) {
             case CREATE_JUST:
+                // 设置默认启动状态为启动失败。
                 this.serviceState = ServiceState.START_FAILED;
 
+                // 校验生产者实例设置的各种参数。比如生产者组名是否为空、是否满足命名规则、长度是否满足等。
                 this.checkConfig();
 
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
+                    // 校验instance name，如果是默认名字则将其修改为进程id。
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
 
+                // 根据生产者组名获取或者初始化一个MQClientInstance。
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
