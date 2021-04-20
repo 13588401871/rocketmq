@@ -156,6 +156,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 // 根据生产者组名获取或者初始化一个MQClientInstance。
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
+                // 注册生产者
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -512,9 +513,19 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     /**
      * 说明 ：发送消息。步骤：获取消息路由信息，选择要发送到的消息队列，执行消息发送核心方法，并对发送结果进行封装返回。
+     * (1) 发送前check
+     * 两个检查：
+     * 生产者状态、消息及消息内容。没有运行的生产者不能发送消息。
+     * 消息检查主要检查消息是否为空，消息的Topic的名字是否为空或者是否符合规范；
+     * 消息体大小是否符合要求，最大值为4MB，可以通过maxMessageSize进行设置。
+     * (2) 选择Queue发送
+     * 执行tryToFindTopicPublishInfo（）方法：获取Topic路由信息，如果不存在则发出异常提醒用户。
+     * 如果本地缓存没有路由信息，就通过Namesrv获取路由信息，更新到本地，再返回。
+     * (3) 可靠发送
+     * (4) 发送结果处理
      * @param msg
-     * @param communicationMode
-     * @param sendCallback
+     * @param communicationMode 通信模式，同步、异步还是单向。
+     * @param sendCallback 对于异步模式，需要设置发送完成后的回调。
      * @param timeout
      * @return
      * @throws MQClientException
@@ -537,7 +548,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         long beginTimestampFirst = System.currentTimeMillis();
         long beginTimestampPrev = beginTimestampFirst;
         long endTimestamp = beginTimestampFirst;
-        // 获取 Topic路由信息
+        // 获取 Topic路由信息，如果不存在则发出异常提醒用户。如果本地缓存没有路由信息，就通过Namesrv获取路由信息，更新到本地，再返回。
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
@@ -556,6 +567,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             for (; times < timesTotal; times++) {
                 String lastBrokerName = null == mq ? null : mq.getBrokerName();
                 // 选择消息要发送到的队列
+                // 根据队列对象中保存的上次发送消息的Broker的名字和Topic路由，选择（轮询）一个Queue将消息发送到Broker。
+                // 我们可以通过sendLatencyFaultEnable 来设置是否总是发送到延迟级别较低的Broker，默认值为False。
                 MessageQueue mqSelected = this.selectOneMessageQueue(topicPublishInfo, lastBrokerName);
                 if (mqSelected != null) {
                     mq = mqSelected;
@@ -573,6 +586,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         }
 
                         // 调用发送消息核心方法
+                        // 主要用于准备通信层的入参（比如Broker地址、请求体等），
+                        // 将请求传递给通信层，内部实现是基于Netty的，在封装为通信层request对象RemotingCommand前，
+                        // 会设置RequestCode表示当前请求是发送单个消息还是批量消息。
                         sendResult = this.sendKernelImpl(msg, mq, communicationMode, sendCallback, topicPublishInfo, timeout - costTime);
                         endTimestamp = System.currentTimeMillis();
                         // 更新Broker可用性信息
