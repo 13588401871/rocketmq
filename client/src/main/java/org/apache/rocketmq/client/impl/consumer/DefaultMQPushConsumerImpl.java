@@ -601,28 +601,36 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             case CREATE_JUST:
                 log.info("the consumer [{}] start beginning. messageModel={}, isUnitMode={}", this.defaultMQPushConsumer.getConsumerGroup(),
                     this.defaultMQPushConsumer.getMessageModel(), this.defaultMQPushConsumer.isUnitMode());
+                // 设置消费者的默认启动状态为失败。
                 this.serviceState = ServiceState.START_FAILED;
 
+                // 消费者参数校验
                 this.checkConfig();
 
+                // 拷贝订阅消息
                 this.copySubscription();
 
                 if (this.defaultMQPushConsumer.getMessageModel() == MessageModel.CLUSTERING) {
                     this.defaultMQPushConsumer.changeInstanceNameToPID();
                 }
 
+                // 获取一个 MQClientInstance，如果 MQClientInstance 已经初始化，则直接返回已初始化的实例。这是核心对象，每个clientId缓存一个实例。
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQPushConsumer, this.rpcHook);
 
+                // 设置Rebalance对象消费者组、消费类型、Queue分配策略、MQClientInstance等参数。
                 this.rebalanceImpl.setConsumerGroup(this.defaultMQPushConsumer.getConsumerGroup());
                 this.rebalanceImpl.setMessageModel(this.defaultMQPushConsumer.getMessageModel());
                 this.rebalanceImpl.setAllocateMessageQueueStrategy(this.defaultMQPushConsumer.getAllocateMessageQueueStrategy());
                 this.rebalanceImpl.setmQClientFactory(this.mQClientFactory);
 
+                // 对 Broker API 的封装类 pullAPIWrapper进行初始化，同时注册消息，过滤filter。
                 this.pullAPIWrapper = new PullAPIWrapper(
                     mQClientFactory,
                     this.defaultMQPushConsumer.getConsumerGroup(), isUnitMode());
                 this.pullAPIWrapper.registerFilterMessageHook(filterMessageHookList);
 
+                // 初始化位点管理器，并加载位点信息。
+                // 位点管理器分为本地管理和远程管理两种，集群消费时消费位点保存在 Broker 中，由远程管理器管理；广播消费时位点存储在本地，由本地管理器管理。
                 if (this.defaultMQPushConsumer.getOffsetStore() != null) {
                     this.offsetStore = this.defaultMQPushConsumer.getOffsetStore();
                 } else {
@@ -640,6 +648,10 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 }
                 this.offsetStore.load();
 
+                // 初始化消费服务并启动。
+                // 之所以用户“感觉”消息是 Broker 主动推送给自己的，是因为DefaultMQPushConsumer通过Pull服务将消息拉取到本地，
+                // 再通过Callback的 形 式，将本地消息Push给用户的消费代码。
+                // DefaultMQPushConsumer 与DefaultMQPullConsumer获取消息的方式一样，本质上都是拉取。
                 if (this.getMessageListenerInner() instanceof MessageListenerOrderly) {
                     this.consumeOrderly = true;
                     this.consumeMessageService =
@@ -652,6 +664,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
                 this.consumeMessageService.start();
 
+                // 本地注册消费者实例，如果注册成功，则表示消费者启动成功。
                 boolean registerOK = mQClientFactory.registerConsumer(this.defaultMQPushConsumer.getConsumerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -661,6 +674,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                         null);
                 }
 
+                // 启动MQClientInstance实例
                 mQClientFactory.start();
                 log.info("the consumer [{}] start OK.", this.defaultMQPushConsumer.getConsumerGroup());
                 this.serviceState = ServiceState.RUNNING;
@@ -676,9 +690,11 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 break;
         }
 
+        // 更新本地订阅关系和路由信息；通过 Broker 检查是否支持消费者的过滤类型；向集群中的所有Broker发送消费者组的心跳信息。
         this.updateTopicSubscribeInfoWhenSubscriptionChanged();
         this.mQClientFactory.checkClientInBroker();
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
+        // 立即执行一次Rebalance
         this.mQClientFactory.rebalanceImmediately();
     }
 

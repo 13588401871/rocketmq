@@ -16,8 +16,6 @@
  */
 package org.apache.rocketmq.client.consumer;
 
-import java.util.Collection;
-import java.util.List;
 import org.apache.rocketmq.client.ClientConfig;
 import org.apache.rocketmq.client.consumer.rebalance.AllocateMessageQueueAveragely;
 import org.apache.rocketmq.client.consumer.store.OffsetStore;
@@ -32,8 +30,12 @@ import org.apache.rocketmq.common.protocol.NamespaceUtil;
 import org.apache.rocketmq.common.protocol.heartbeat.MessageModel;
 import org.apache.rocketmq.remoting.RPCHook;
 
+import java.util.Collection;
+import java.util.List;
+
 public class DefaultLitePullConsumer extends ClientConfig implements LitePullConsumer {
 
+    // 默认Pull消费者的具体实现
     private final DefaultLitePullConsumerImpl defaultLitePullConsumerImpl;
 
     /**
@@ -44,40 +46,49 @@ public class DefaultLitePullConsumer extends ClientConfig implements LitePullCon
      * data consumption model aligns with the traditional publish-subscribe model. The messages are broadcast to all
      * consumer groups.
      */
+    // 消费者组名字。
     private String consumerGroup;
 
     /**
      * Long polling mode, the Consumer connection max suspend time, it is not recommended to modify
      */
+    // 在长轮询模式下，Broker的最大挂起请求时间，建议不要修改此值。
     private long brokerSuspendMaxTimeMillis = 1000 * 20;
 
     /**
      * Long polling mode, the Consumer connection timeout(must greater than brokerSuspendMaxTimeMillis), it is not
      * recommended to modify
      */
+    // 在长轮询模式下，消费者的最大请求超时时间，必须比brokerSuspendMaxTimeMillis大，不建议修改。
     private long consumerTimeoutMillisWhenSuspend = 1000 * 30;
 
     /**
      * The socket timeout in milliseconds
      */
+    // 消费者Pull消息时Socket的超时时间。
     private long consumerPullTimeoutMillis = 1000 * 10;
 
     /**
      * Consumption pattern,default is clustering
      */
+    // 消费模式，现在支持集群模式消费和广播模式消费。
     private MessageModel messageModel = MessageModel.CLUSTERING;
     /**
      * Message queue listener
      */
+    // 消息路由信息变化时回调处理监听器，一般在重新平衡时会被调用。
     private MessageQueueListener messageQueueListener;
     /**
      * Offset Storage
      */
+    // 位点存储模块。集群模式位点会持久化到Broker中，广播模式持久化到本地文件中位，
+    // 两个实现类：RemoteBrokerOffsetStore和LocalFileOffsetStore
     private OffsetStore offsetStore;
 
     /**
      * Queue allocation algorithm
      */
+    // 消费Queue分配策略管理器。
     private AllocateMessageQueueStrategy allocateMessageQueueStrategy = new AllocateMessageQueueAveragely();
     /**
      * Whether the unit of subscription group
