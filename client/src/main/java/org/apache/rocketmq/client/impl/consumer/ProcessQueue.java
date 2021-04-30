@@ -58,6 +58,8 @@ public class ProcessQueue {
     /**
      * A subset of msgTreeMap, will only be used when orderly consume
      */
+    // key是消息物理位点值，Value 是消息对象，保存当前正在处理的顺序消息集合，是 msgTreeMap的一个子集。
+    // 保存的数据是按照key（就是物理位点值）顺序排列的。
     private final TreeMap<Long, MessageExt> consumingMsgOrderlyTreeMap = new TreeMap<Long, MessageExt>();
     private final AtomicLong tryUnlockTimes = new AtomicLong(0);
     /**
@@ -196,6 +198,10 @@ public class ProcessQueue {
         return dispatchToConsume;
     }
 
+    /**
+     * 用于计算本地缓存队列中第一个消息和最后一个消息的offset差值
+     * @return
+     */
     public long getMaxSpan() {
         try {
             this.lockTreeMap.readLock().lockInterruptibly();
@@ -329,6 +335,8 @@ public class ProcessQueue {
 
     /**
      * 指定消息重新消费
+     * 将消息从 consumingMsgOrderlyTreeMap 中删除，再重新放入本地缓存队列msgTreeMap中，等待下次被重新消费
+     *
      * 逻辑类似于{@link #rollback()}
      * @param msgs 消息
      */

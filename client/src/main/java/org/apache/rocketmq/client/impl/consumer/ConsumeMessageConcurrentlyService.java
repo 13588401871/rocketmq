@@ -38,6 +38,9 @@ import org.apache.rocketmq.remoting.common.RemotingHelper;
 import java.util.*;
 import java.util.concurrent.*;
 
+/**
+ * 用于并发消费
+ */
 public class ConsumeMessageConcurrentlyService implements ConsumeMessageService {
     private static final InternalLogger log = ClientLogger.getLog();
     private final DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;
@@ -430,6 +433,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             ConsumeConcurrentlyContext context = new ConsumeConcurrentlyContext(messageQueue);
             // 消费结果状态
             ConsumeConcurrentlyStatus status = null;
+            // 消费执行前进行预处理。
             defaultMQPushConsumerImpl.resetRetryAndNamespace(msgs, defaultMQPushConsumer.getConsumerGroup());
 
             // Hook
@@ -456,6 +460,9 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                     }
                 }
                 // 进行消费
+                // 首先设置消息开始消费时间为当前时间，再将消息列表转为不可修改的List，
+                // 然后通过listener.consumeMessage（Collections.unmodifiableList（msgs），context）方法
+                // 将消息传递给用户编写的业务消费代码进行处理。
                 status = listener.consumeMessage(Collections.unmodifiableList(msgs), context);
             } catch (Throwable e) {
                 log.warn("consumeMessage exception: {} Group: {} Msgs: {} MQ: {}",

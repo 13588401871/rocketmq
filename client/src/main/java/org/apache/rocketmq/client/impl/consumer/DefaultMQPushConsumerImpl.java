@@ -253,6 +253,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         }
 
         if (!this.consumeOrderly) { // 判断消息跨度是否过大。
+            // 并发消费
             if (processQueue.getMaxSpan() > this.defaultMQPushConsumer.getConsumeConcurrentlyMaxSpan()) {
                 this.executePullRequestLater(pullRequest, PULL_TIME_DELAY_MILLS_WHEN_FLOW_CONTROL); // 提交延迟消息拉取请求。50ms。
                 if ((queueMaxSpanFlowControlTimes++ % 1000) == 0) {
@@ -265,6 +266,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             }
         } else { // 顺序消费
             if (processQueue.isLocked()) {
+                // 如果不是第一次拉取，需要先计算最新的拉取位点并修正本地最新的待拉取位点信息，再执行拉取
                 if (!pullRequest.isLockedFirst()) {
                     final long offset = this.rebalanceImpl.computePullFromWhere(pullRequest.getMessageQueue());
                     boolean brokerBusy = offset < pullRequest.getNextOffset();
@@ -295,6 +297,8 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
         final long beginTimestamp = System.currentTimeMillis();
 
+        // 封装拉取请求和拉取后的回调对象 PullCallback。
+        // 将消息拉取请求和拉取结果处理封装成 PullCallback，并通过调用 PullAPIWrapper.pullKernelImpl（）方法将拉取请求发出去。
         PullCallback pullCallback = new PullCallback() {
             @Override
             public void onSuccess(PullResult pullResult) {
@@ -1206,6 +1210,8 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     }
 
     public void resetRetryAndNamespace(final List<MessageExt> msgs, String consumerGroup) {
+        // 消费执行前进行预处理。执行消费前的 hook 和重试消息预处理。消费前的hook可以理解为消费前的消息预处理（比如消息格式校验）。
+        // 如果拉取的消息来自重试队列，则将Topic名重置为原来的Topic名，而不用重试Topic名。
         final String groupTopic = MixAll.getRetryTopic(consumerGroup);
         for (MessageExt msg : msgs) {
             String retryTopic = msg.getProperty(MessageConst.PROPERTY_RETRY_TOPIC);

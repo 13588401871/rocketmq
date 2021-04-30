@@ -43,6 +43,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.*;
 
+/**
+ * 用于顺序消费
+ */
 public class ConsumeMessageOrderlyService implements ConsumeMessageService {
     private static final InternalLogger log = ClientLogger.getLog();
     private final static long MAX_TIME_CONSUME_CONTINUOUSLY =
@@ -226,6 +229,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
         return false;
     }
 
+    // 执行一个定时任务，延迟一定时间后重新将消费请求发送到消费线程池中，以供下一轮的消费
     private void submitConsumeRequestLater(
         final ProcessQueue processQueue,
         final MessageQueue messageQueue,
@@ -273,6 +277,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
         boolean continueConsume = true;
         long commitOffset = -1L;
         if (context.isAutoCommit()) {
+            // 自动提交 offset
             switch (status) {
                 case COMMIT: // 消费成功提交并且提交。
                 case ROLLBACK: // 消费失败，消费回滚。
@@ -304,6 +309,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                     break;
             }
         } else {
+            // 手动提交 offset
             switch (status) {
                 case SUCCESS: // 消费成功但不提交。
                     // 统计
