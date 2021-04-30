@@ -26,7 +26,7 @@ import java.util.List;
 
 /**
  * Average Hashing queue algorithm
- * 平均分配队列策略。
+ * 平均分配队列策略。也是默认使用的策略
  */
 public class AllocateMessageQueueAveragely implements AllocateMessageQueueStrategy {
     private final InternalLogger log = ClientLogger.getLog();

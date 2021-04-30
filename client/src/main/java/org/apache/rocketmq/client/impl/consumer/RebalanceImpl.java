@@ -36,14 +36,21 @@ import java.util.concurrent.ConcurrentMap;
 
 public abstract class RebalanceImpl {
     protected static final InternalLogger log = ClientLogger.getLog();
+    // 记录MessageQueue和ProcessQueue的关系。
+    // MessageQueue可以简单地理解为 ConsumeQueue的客户端实现；
+    // ProcessQueue是保存Pull消息的本地容器。
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>(64);
+    // Topic路由信息。保存Topic和MessageQueue的关系。
     protected final ConcurrentMap<String/* topic */, Set<MessageQueue>> topicSubscribeInfoTable =
         new ConcurrentHashMap<String, Set<MessageQueue>>();
+    // 真正的订阅关系，保存当前消费者组订阅了哪些Topic的哪些Tag。
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
         new ConcurrentHashMap<String, SubscriptionData>();
     protected String consumerGroup;
     protected MessageModel messageModel;
+    // MessageQueue 消费分配策略的实现。
     protected AllocateMessageQueueStrategy allocateMessageQueueStrategy;
+    // client实例对象
     protected MQClientInstance mQClientFactory;
 
     public RebalanceImpl(String consumerGroup, MessageModel messageModel,
@@ -285,6 +292,8 @@ public abstract class RebalanceImpl {
                     List<MessageQueue> mqAll = new ArrayList<MessageQueue>();
                     mqAll.addAll(mqSet);
 
+                    // 将mqAll和cidAll排序的目的在于，保证所有消费者客户端在做 Rebalance 的时候，
+                    // 看到的 MessageQueue 列表和消费者客户端都是一样的视图，做Rebalance时才不会分配错。
                     Collections.sort(mqAll);
                     Collections.sort(cidAll);
 
@@ -293,6 +302,7 @@ public abstract class RebalanceImpl {
                     // 根据队列分配策略分配消息队列
                     List<MessageQueue> allocateResult = null;
                     try {
+                        // 按照当前设置的队列分配策略执行 Queue 分配
                         allocateResult = strategy.allocate(
                             this.consumerGroup,
                             this.mQClientFactory.getClientId(),
@@ -310,12 +320,17 @@ public abstract class RebalanceImpl {
                     }
 
                     // 更新消息队列
+                    // 在队列重新分配后，当前消费者消费的队列可能不会发生变化，也可能发生变化，不管是增加了新的队列需要消费，还是减少了队列，
+                    // 都需要执行updateProcessQueueTableInRebalance（）方法来更新ProcessQueue。
+                    // 如果有MessageQueue不再分配给当前的消费者消费，则设置 ProcessQueue.setDropped（true），
+                    // 表示放弃当前MessageQueue 的 Pull 消息。
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, allocateResultSet, isOrder);
                     if (changed) {
                         log.info(
                             "rebalanced result changed. allocateMessageQueueStrategyName={}, group={}, topic={}, clientId={}, mqAllSize={}, cidAllSize={}, rebalanceResultSize={}, rebalanceResultSet={}",
                             strategy.getName(), consumerGroup, topic, this.mQClientFactory.getClientId(), mqSet.size(), cidAll.size(),
                             allocateResultSet.size(), allocateResultSet);
+                        // 如果有MessageQueue订阅发生变化，则更新本地订阅关系版本，修改本地消费者限流的一些参数，然后发送心跳，通知所有Broker，当前订阅关系发生了改变。
                         this.messageQueueChanged(topic, mqSet, allocateResultSet);
                     }
                 }
@@ -432,9 +447,21 @@ public abstract class RebalanceImpl {
         return changed;
     }
 
+    /**
+     * 通知Message发生变化，这个方法在Push和Pull两个类中被重写。
+     * @param topic
+     * @param mqAll
+     * @param mqDivided
+     */
     public abstract void messageQueueChanged(final String topic, final Set<MessageQueue> mqAll,
         final Set<MessageQueue> mqDivided);
 
+    /**
+     * 去掉不再需要的MessageQueue。
+     * @param mq
+     * @param pq
+     * @return
+     */
     public abstract boolean removeUnnecessaryMessageQueue(final MessageQueue mq, final ProcessQueue pq);
 
     public abstract ConsumeType consumeType();
@@ -443,6 +470,10 @@ public abstract class RebalanceImpl {
 
     public abstract long computePullFromWhere(final MessageQueue mq);
 
+    /**
+     * 执行消息拉取请求。
+     * @param pullRequestList
+     */
     public abstract void dispatchPullRequest(final List<PullRequest> pullRequestList);
 
     public void removeProcessQueue(final MessageQueue mq) {

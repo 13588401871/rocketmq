@@ -35,6 +35,7 @@ public interface AllocateMessageQueueStrategy {
      * @param cidAll consumer set in current consumer group
      * @return The allocate result of given strategy
      */
+    // 执行队列分配操作，该方法必须满足全部队列都能被分配到消费者。
     List<MessageQueue> allocate(
         final String consumerGroup,
         final String currentCID,
@@ -47,5 +48,6 @@ public interface AllocateMessageQueueStrategy {
      *
      * @return The strategy name
      */
+    // 获取当前分配算法的名字。
     String getName();
 }

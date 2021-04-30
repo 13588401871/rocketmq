@@ -25,7 +25,7 @@ import java.util.Set;
 
 /**
  * Computer room Hashing queue algorithm, such as Alipay logic room
- * 平均分配可消费的 Broker 对应的消息队列。
+ * 机房分配策略。
  */
 public class AllocateMessageQueueByMachineRoom implements AllocateMessageQueueStrategy {
     /**

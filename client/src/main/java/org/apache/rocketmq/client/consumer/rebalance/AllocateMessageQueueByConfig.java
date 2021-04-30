@@ -22,7 +22,7 @@ import org.apache.rocketmq.common.message.MessageQueue;
 import java.util.List;
 
 /**
- * 分配配置的消息队列。
+ * 手动配置的消息队列。
  */
 public class AllocateMessageQueueByConfig implements AllocateMessageQueueStrategy {
     private List<MessageQueue> messageQueueList;
