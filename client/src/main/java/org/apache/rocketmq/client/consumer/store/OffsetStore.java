@@ -28,16 +28,19 @@ import java.util.Set;
  * Offset store interface
  * Consumer 消费进度
  */
+// 位点管理器
 public interface OffsetStore {
     /**
      * Load
      */
+    // 加载位点信息
     void load() throws MQClientException;
 
     /**
      * Update the offset,store it in memory
      * 该方法 RemoteBrokerOffsetStore 与 LocalFileOffsetStore 实现相同。
      */
+    // 更新缓存位点信息
     void updateOffset(final MessageQueue mq, final long offset, final boolean increaseOnly);
 
     /**
@@ -45,26 +48,31 @@ public interface OffsetStore {
      *
      * @return The fetched offset
      */
+    // 读取本地位点信息
     long readOffset(final MessageQueue mq, final ReadOffsetType type);
 
     /**
      * Persist all offsets,may be in local storage or remote name server
      */
+    // 持久化全部队列的位点信息
     void persistAll(final Set<MessageQueue> mqs);
 
     /**
      * Persist the offset,may be in local storage or remote name server
      */
+    // 持久化某一个队列的位点信息
     void persist(final MessageQueue mq);
 
     /**
      * Remove offset
      */
+    // 删除某一个队列的位点信息
     void removeOffset(MessageQueue mq);
 
     /**
      * @return The cloned offset table of given topic
      */
+    // 复制一份缓存位点信息
     Map<MessageQueue, Long> cloneOffsetTable(String topic);
 
     /**
@@ -72,6 +80,7 @@ public interface OffsetStore {
      * @param offset
      * @param isOneway
      */
+    // 将本地消费位点持久化到Broker中
     void updateConsumeOffsetToBroker(MessageQueue mq, long offset, boolean isOneway) throws RemotingException,
         MQBrokerException, InterruptedException, MQClientException;
 }

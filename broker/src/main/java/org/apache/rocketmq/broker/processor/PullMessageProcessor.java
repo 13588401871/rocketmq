@@ -90,7 +90,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
      * 处理拉取消息请求，返回响应。
      * @param channel
      * @param request
-     * @param brokerAllowSuspend
+     * @param brokerAllowSuspend Broker 是否能挂起。如果 Broker 是挂起状态，将不能持久化位点。
      * @return
      * @throws RemotingCommandException
      */

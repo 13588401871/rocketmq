@@ -292,7 +292,8 @@ public class MQClientInstance {
             }
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
-        // 定时同步消费进度
+        // 定时同步消费进度,在启动程序10s后，会定时调用持久化方法MQClientInstance.this.persistAllConsumerOffset（），
+        // 持久化每一个消费者消费的每一个MessageQueue的消费进度。
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
