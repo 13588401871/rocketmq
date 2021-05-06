@@ -16,16 +16,12 @@
  */
 package org.apache.rocketmq.namesrv;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.common.Configuration;
 import org.apache.rocketmq.common.ThreadFactoryImpl;
 import org.apache.rocketmq.common.constant.LoggerName;
+import org.apache.rocketmq.common.namesrv.NamesrvConfig;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
-import org.apache.rocketmq.common.namesrv.NamesrvConfig;
 import org.apache.rocketmq.namesrv.kvconfig.KVConfigManager;
 import org.apache.rocketmq.namesrv.processor.ClusterTestRequestProcessor;
 import org.apache.rocketmq.namesrv.processor.DefaultRequestProcessor;
@@ -37,6 +33,11 @@ import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.apache.rocketmq.remoting.netty.TlsSystemConfig;
 import org.apache.rocketmq.srvutil.FileWatchService;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 
 public class NamesrvController {
@@ -73,10 +74,14 @@ public class NamesrvController {
         this.configuration.setStorePathFromConfig(this.namesrvConfig, "configStorePath");
     }
 
+    // 定时扫描宕机的Broker、定时打印KV配置、定时扫描超时请求
     public boolean initialize() {
 
+        // 加载KV配置。主要是从本地文件中加载KV配置到内存中
         this.kvConfigManager.load();
 
+        // 初始化Netty通信层实例。RocketMQ基于Netty实现了一个RPC服务端，即NettyRemotingServer。
+        // 通过参数nettyServerConfig，会启动9876端口监听
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
 
         this.remotingExecutor =
@@ -86,6 +91,8 @@ public class NamesrvController {
 
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
+            // Namesrv 主动检测 Broker 是否可用，如果不可用就剔除。
+            // 生产者、消费者也能通过心跳发现被踢出的路由，从而感知Broker下线
             @Override
             public void run() {
                 NamesrvController.this.routeInfoManager.scanNotActiveBroker();
@@ -94,6 +101,7 @@ public class NamesrvController {
 
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
+            // Namesrv定时打印配置信息到日志中
             @Override
             public void run() {
                 NamesrvController.this.kvConfigManager.printAllPeriodically();
@@ -161,8 +169,11 @@ public class NamesrvController {
     }
 
     public void shutdown() {
+        // 关闭Netty服务端，主要是关闭Netty事件处理器、时间监听器等全部已经初始化的组件
         this.remotingServer.shutdown();
+        // 关闭Namesrv接口处理线程池
         this.remotingExecutor.shutdown();
+        // 关闭全部已经启动的定时任务
         this.scheduledExecutorService.shutdown();
 
         if (this.fileWatchService != null) {
